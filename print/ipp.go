@@ -3,12 +3,14 @@ package print
 import (
 	"bytes"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"os/exec"
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	goipp "github.com/phin1x/go-ipp"
 )
@@ -153,6 +155,13 @@ func ProbeIPP(ippURI string) (name string, reachable bool) {
 	if err != nil {
 		return "", false
 	}
+
+	// Quick TCP check with short timeout — avoids hanging on unreachable hosts
+	conn, dialErr := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", host, port), 3*time.Second)
+	if dialErr != nil {
+		return "", false
+	}
+	conn.Close()
 
 	client := goipp.NewIPPClient(host, port, "cloudprint", "", false)
 

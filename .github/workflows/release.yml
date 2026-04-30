@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+
+      - name: Build binaries
+        run: |
+          mkdir -p dist
+          VERSION="${GITHUB_REF_NAME:-dev}"
+
+          GOOS=linux  GOARCH=amd64 go build -ldflags="-s -w -X github.com/cloudprint/cloudprint-agent/service.Version=${VERSION}" -o dist/cloudprint-agent_linux_amd64   .
+          GOOS=linux  GOARCH=arm64 go build -ldflags="-s -w -X github.com/cloudprint/cloudprint-agent/service.Version=${VERSION}" -o dist/cloudprint-agent_linux_arm64   .
+          GOOS=windows GOARCH=amd64 go build -ldflags="-s -w -X github.com/cloudprint/cloudprint-agent/service.Version=${VERSION}" -o dist/cloudprint-agent_windows_amd64.exe .
+
+          chmod +x dist/cloudprint-agent_linux_*
+
+          # Checksums
+          cd dist && sha256sum * > SHA256SUMS && cd ..
+
+      - name: Install NSIS
+        run: sudo apt-get install -y nsis
+
+      - name: Build Windows installer
+        run: |
+          VERSION="${GITHUB_REF_NAME:-v0.0.0}"
+          VERSION_NUMS="${VERSION#v}"
+          cp dist/cloudprint-agent_windows_amd64.exe installer/cloudprint-agent.exe
+          makensis -DVERSION="${VERSION_NUMS}" installer/cloudprint-agent.nsi
+          mv installer/CloudPrintAgent-Setup.exe dist/CloudPrintAgent-Setup-${VERSION}.exe
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/cloudprint-agent_linux_amd64
+            dist/cloudprint-agent_linux_arm64
+            dist/cloudprint-agent_windows_amd64.exe
+            dist/CloudPrintAgent-Setup-*.exe
+            dist/SHA256SUMS
+          generate_release_notes: true
+          draft: false
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+      - run: go test ./... -v -timeout 30s
