@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="https://github.com/cloudprint/cloudprint-agent"
+REPO="https://github.com/R3ITOSv87/cloudprint-agent"
 VERSION="latest"
 INSTALL_DIR="/usr/local/bin"
 BINARY="cloudprint-agent"
@@ -17,7 +17,11 @@ case "$ARCH" in
 esac
 
 FILENAME="${BINARY}_${OS}_${ARCH}"
-DOWNLOAD_URL="${REPO}/releases/${VERSION}/download/${FILENAME}"
+if [ "$VERSION" = "latest" ]; then
+    DOWNLOAD_URL="${REPO}/releases/latest/download/${FILENAME}"
+else
+    DOWNLOAD_URL="${REPO}/releases/download/${VERSION}/${FILENAME}"
+fi
 
 echo "CloudPrint Agent Installer"
 echo "OS: ${OS}, Arch: ${ARCH}"
